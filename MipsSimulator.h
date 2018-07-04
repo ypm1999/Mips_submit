@@ -289,7 +289,7 @@ public:
 			throw without_main();
 		auto now = (*main).second;
 		while (true) {
-			string name = code->getname(now);
+			//string name = code->getname(now);
 			Word next = runBlock(now);
 			if (next.i == EXIT_WITHOUT_VALUE)
 				return false;
