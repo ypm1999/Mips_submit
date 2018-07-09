@@ -13,32 +13,29 @@ using std::vector;
 using std::map;
 using std::pair;
 
-// TODO: Format the text into entries
+
+
 class MipsParser {
 	friend class MipsSimulator;
 
 	class Data {
 		friend class MipsParser;
-		friend class MipsSimulator;
-		int n;
+		DataType type;
 		string data;
-	public:
-		Data() noexcept :n(-1) {}
-		~Data() = default;
 	};
-
 	
-	string s;
 	Memory *mem;
+	unsigned int codeLimit;
+	unsigned int entry;
+	string *sourceCode;
 	vector< pair<string, vector<Data> > > *data;
 	map<string, vector<int> > *table;
-	
-	map<string, Word> commandMap;
-	map<string, Word> dataMap;
+	map<string, Word> *commandMap;
+	map<string, Word> *dataMap;
 	map<string, CommandType> commandNameMap;
 	map<string, DataType> dataNameMap;
 	map<string, Byte> regMap;
-	unsigned int codeLimit;
+
 
 	void __initialization();
 
@@ -53,36 +50,51 @@ class MipsParser {
 	void matchLabel();
 
 public:
-	MipsParser(const string &str, Memory *_mem);
+	MipsParser();
 	~MipsParser() = default;
 
-	bool parser();
+	bool work(const string &str, Memory *_mem);
 	unsigned int getLimit() { return codeLimit; }
-	unsigned int getAddress(string name);
-	string getname(Word address);
+	unsigned int getEntry() { return entry; }
+	
 
 	#ifdef DEBUG
 		#include <iostream>
+		unsigned int getAddress(string name) {
+			auto tmp = commandMap->find(name);
+			if (tmp == commandMap->end())
+				return 0;
+			else
+				return tmp->second;
+		}
+
+		string getname(Word address) {
+			for (auto j : *commandMap)
+				if (j.second.i == address.i)
+					return j.first;
+			return "none";
+		}
+
 		string getdata(const Word &address) {
-			for (auto i : dataMap)
+			for (auto i : *dataMap)
 				if (i.second.i == address.i)
 					return i.first;
 			return "none";
 		}
+
 		string getcom(const CommandType &com) {
 			for (auto i : commandNameMap)
 				if (i.second == com)
 					return i.first;
 			return "none";
 		}
+
 		void output(Word now) {
 			Word res1 = mem->getWord(now.ui << 3);
 			Word res2 = mem->getWord((now.ui << 3) + (commandSize >> 1));
 			Word lebal = 0;
 			CommandType com = (CommandType)res1.b0;
 			std::cout << getcom(com) << "  ";
-			//std::cout << getcom(com) << std::endl;
-			//return;
 			switch (com) {
 			case CommandType::_add:
 			case CommandType::_addu:
@@ -158,8 +170,9 @@ public:
 			}
 			puts("");
 		}
+
 		void out() {
-			for (int i = 1; i < codeLimit; i++) {
+			for (unsigned int i = 1; i < codeLimit; i++) {
 				string na = getname(i);
 				if (na != "none")
 					std::cout << na << ":  ";

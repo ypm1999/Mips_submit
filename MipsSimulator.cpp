@@ -1,79 +1,90 @@
 #include "MipsSimulator.h"
 
-void MipsSimulator::__init() {
-	memset(reg, 0, sizeof(reg));
-	memset(regLock, 0, sizeof(regLock));
-	reg[29].ui = mem->getSize() - 1;
-	pc = code->getAddress("main");
-	if (pc.i == 0)
-		throw without_main();
-}
 
+bool MipsSimulator::IF_ID::empty(){
+	return res1.b0 == (unsigned char)CommandType::none;
+}
 
 void MipsSimulator::IF_ID::init() {
 	res1.b0 = (unsigned char)CommandType::none;
-	load.ui = EXreg.ui = MEMreg.ui = 255u;
-//	EXdata = MEMdata = 0;
+	npc = 0;
+}
+
+bool MipsSimulator::ID_EX::empty(){
+	return com == CommandType::none;
 }
 
 void MipsSimulator::ID_EX::init() {
 	com = CommandType::none;
 	res.ui = 255u;
-//	a = b = imm = 0;
+}
+
+bool MipsSimulator::EX_MEM::empty(){
+	return com == CommandType::none;
 }
 
 void MipsSimulator::EX_MEM::init() {
 	com = CommandType::none;
 	res.ui = 255u;
-//	ALUout = address = 0;
+}
+
+bool MipsSimulator::MEM_WB::empty(){
+	return com == CommandType::none;
 }
 
 void MipsSimulator::MEM_WB::init() {
 	com = CommandType::none;
-//	result = 0;
 	res.ui = 255u;
 }
 
+
+bool MipsSimulator::getBranch(unsigned int i) {
+	i &= addressBIT;
+//	return BHT[i];
+	return BHT[(i << pridLen) + BH[i]];
+}
+
+void MipsSimulator::changeBranch(unsigned int i, bool sta) {
+	i &= addressBIT;
+//	BHT[i] = sta;
+//	return;
+	BHT[(i << pridLen) + BH[i]] = sta;
+	BH[i] = ((BH[i] << 1) | sta) & pridBIT;
+}
+
+
 bool MipsSimulator::getReg(const IF_ID &in, const unsigned char id, Word &res) const {
-	if (regLock[id] == 0) {
-		res = reg[id];
+	if (in.load.ui == id)
+		return false;
+	if (in.EXreg.ui == id) {
+		res = in.EXdata;
 		return true;
 	}
-	else {
-
-		if (in.load.ui == id)
-			return false;
-		if (in.EXreg.ui == id) {
-			res = in.EXdata;
-			return true;
-		}
-		if(in.MEMreg.ui == id) {
-			res = in.MEMdata;
-			return true;
-		}
+	if (in.MEMreg.ui == id) {
+		res = in.MEMdata;
+		return true;
+	}
+	if (!regLock[id]) {
+		res = reg[id];
+		return true;
 	}
 	return false;
 }
 
-
-bool MipsSimulator::IF(IF_ID &write, bool &mem_access) {
-	if (!mem_access || write.res1.b0 != (char)CommandType::none)
-		return false;
-	if (pc.ui > code->getLimit())
+bool MipsSimulator::IF(IF_ID &write) {
+	if (pc.ui > codeLimit)
 		throw command_address_error(pc.ui);
-	write.res1 = mem->getWord(pc.ui << 3);
-	write.res2 = mem->getWord((pc.ui << 3) + (commandSize >> 1));
 #ifdef DEBUG
 	code->output(pc.ui);
 #endif // DEBUG
+	write.res1 = mem->getWord(pc.ui << 3);
+	write.res2 = mem->getWord((pc.ui << 3) + (commandSize >> 1));
 	pc.ui++;
 	write.npc = pc;
 	return true;
 }
 
-bool MipsSimulator::ID(IF_ID &get, ID_EX &write) {
-	if ((CommandType)get.res1.b0 == CommandType::none || write.com != CommandType::none)
-		return false;
+bool MipsSimulator::ID(const IF_ID &get, ID_EX &write) {
 	switch ((CommandType)get.res1.b0) {
 	//rs rd src
 	case CommandType::_add:
@@ -134,6 +145,7 @@ bool MipsSimulator::ID(IF_ID &get, ID_EX &write) {
 	//rd,cons
 	case CommandType::_li:
 		write.imm = get.res2;
+		write.a.ui = 0;
 		write.res.ui = get.res1.b1;
 		break;
 	// rd, address
@@ -144,24 +156,24 @@ bool MipsSimulator::ID(IF_ID &get, ID_EX &write) {
 		if (get.res1.b2 != 255u) {
 			if (!getReg(get, get.res1.b2, write.imm))
 				return false;
-			write.imm.ui += get.res2.i;
+			write.a.ui = get.res2.i;
 		}
 		else
-			write.imm = get.res2;
+			write.imm = get.res2, write.a.ui = 0;
 		write.res.ui = get.res1.b1;
 		break;
 	case CommandType::_sb:
 	case CommandType::_sh:
 	case CommandType::_sw:
-		if (!getReg(get, get.res1.b1, write.a))
+		if (!getReg(get, get.res1.b1, write.b))
 			return false;
 		if (get.res1.b2 != 255u) {
 			if (!getReg(get, get.res1.b2, write.imm))
 				return false;
-			write.imm.ui += get.res2.i;
+			write.a.ui = get.res2.i;
 		}
 		else
-			write.imm = get.res2;
+			write.imm = get.res2, write.a.ui = 0;
 		break;
 	//rd
 	case CommandType::_mfhi:
@@ -253,7 +265,6 @@ bool MipsSimulator::ID(IF_ID &get, ID_EX &write) {
 		case 10:
 			withReturnValue = false;
 			pc = 0;
-			get.init();
 			return true;
 			break;
 		case 17:
@@ -262,11 +273,10 @@ bool MipsSimulator::ID(IF_ID &get, ID_EX &write) {
 			returnValue = write.a;
 			withReturnValue = true;
 			pc = 0;
-			get.init();
 			return true;
 			break;
 		default:
-			throw run_command_error(string("syscall with code ") + std::to_string(write.a.i));
+			throw run_command_error(string("syscall with code ") + std::to_string(write.imm.i));
 		}
 		break;
 	}
@@ -276,20 +286,15 @@ bool MipsSimulator::ID(IF_ID &get, ID_EX &write) {
 	default:
 		throw command_not_found(std::to_string(get.res1.b0));
 	}
-	//puts("ID");
 	write.npc = get.npc;
 	if(write.com == CommandType::none)
 		write.com = (CommandType)get.res1.b0;
 	if(write.res.ui != 255u)
 		regLock[write.res.ui]++;
-	get.init();
 	return true;
 }
 
-bool MipsSimulator::EX(ID_EX &get, EX_MEM  &write) {
-	if (get.com == CommandType::none || write.com != CommandType::none)
-		return false;
-//puts("EX");
+bool MipsSimulator::EX(const ID_EX &get, EX_MEM  &write) {
 	write.com = get.com;
 	write.res = get.res;
 	switch (get.com) {
@@ -369,13 +374,13 @@ bool MipsSimulator::EX(ID_EX &get, EX_MEM  &write) {
 	case CommandType::_lb:
 	case CommandType::_lh:
 	case CommandType::_lw:
-		write.address = get.imm;
+		write.address.ui = get.imm.ui + get.a.ui;
 		break;
 	case CommandType::_sb:
 	case CommandType::_sh:
 	case CommandType::_sw:
-		write.address = get.imm;
-		write.ALUout = get.a;
+		write.address.ui = get.imm.ui + get.a.ui;
+		write.ALUout = get.b;
 		break;
 	//----------------------# cmp #---------------
 	case CommandType::_seq:
@@ -398,74 +403,74 @@ bool MipsSimulator::EX(ID_EX &get, EX_MEM  &write) {
 		break;
 	//----------------------# branch #---------------
 	case CommandType::_beq:
-		if (get.a == get.b)
+		if (get.a.i == get.b.i)
 			write.address = get.imm;
 		else
 			write.address = get.npc;
 		break;
 	case CommandType::_bne:
-		if (get.a != get.b)
+		if (get.a.i != get.b.i)
 			write.address = get.imm;
 		else
 			write.address = get.npc;
 		break;
 	case CommandType::_bge:
-		if (get.a >= get.b)
+		if (get.a.i >= get.b.i)
 			write.address = get.imm;
 		else
 			write.address = get.npc;
 		break;
 	case CommandType::_ble:
-		if (get.a <= get.b)
+		if (get.a.i <= get.b.i)
 			write.address = get.imm;
 		else
 			write.address = get.npc;
 		break;
 	case CommandType::_bgt:
-		if (get.a > get.b)
+		if (get.a.i > get.b.i)
 			write.address = get.imm;
 		else
 			write.address = get.npc;
 		break;
 	case CommandType::_blt:
-		if (get.a < get.b)
+		if (get.a.i < get.b.i)
 			write.address = get.imm;
 		else
 			write.address = get.npc;
 		break;
 	//----------------# branch, cmp with zero #---------------
 	case CommandType::_beqz:
-		if (get.a == 0)
+		if (get.a.i == 0)
 			write.address = get.imm;
 		else
 			write.address = get.npc;
 		break;
 	case CommandType::_bnez:
-		if (get.a != 0)
+		if (get.a.i != 0)
 			write.address = get.imm;
 		else
 			write.address = get.npc;
 		break;
 	case CommandType::_bgez:
-		if (get.a >= 0)
+		if (get.a.i >= 0)
 			write.address = get.imm;
 		else
 			write.address = get.npc;
 		break;
 	case CommandType::_blez:
-		if (get.a <= 0)
+		if (get.a.i <= 0)
 			write.address = get.imm;
 		else
 			write.address = get.npc;
 		break;
 	case CommandType::_bgtz:
-		if (get.a > 0)
+		if (get.a.i > 0)
 			write.address = get.imm;
 		else
 			write.address = get.npc;
 		break;
 	case CommandType::_bltz:
-		if (get.a < 0)
+		if (get.a.i < 0)
 			write.address = get.imm;
 		else
 			write.address = get.npc;
@@ -504,19 +509,14 @@ bool MipsSimulator::EX(ID_EX &get, EX_MEM  &write) {
 	default:
 		break;
 	}
-	get.init();
 	return true;
 }
 
-bool MipsSimulator::MEM(EX_MEM &get, MEM_WB &write, bool &mem_access) {
-	if (get.com == CommandType::none || write.com != CommandType::none)
-		return false;
-//puts("MEM");
+bool MipsSimulator::MEM(const EX_MEM &get, MEM_WB &write) {
 	write.com = get.com;
 	write.res = get.res;
-	mem_access = false;
 	switch (get.com) {
-		//----------------------# load #-------------------
+	//----------------------# load #-------------------
 	case CommandType::_lb:
 		write.result = (Word)mem->getByte(get.address);
 		break;
@@ -526,17 +526,17 @@ bool MipsSimulator::MEM(EX_MEM &get, MEM_WB &write, bool &mem_access) {
 	case CommandType::_lw:
 		write.result = (Word)mem->getWord(get.address);
 		break;
-		//----------------------# store #---------------
+	//----------------------# store #---------------
 	case CommandType::_sb:
-		mem->writeByte(get.address, (Byte)get.ALUout);
+		mem->writeByte(get.address, (Byte)get.ALUout.ui);
 		break;
 	case CommandType::_sh:
-		mem->writeHalf(get.address, (Half)get.ALUout);
+		mem->writeHalf(get.address, (Half)get.ALUout.ui);
 		break;
 	case CommandType::_sw:
-		mem->writeWord(get.address, (Word)get.ALUout);
+		mem->writeWord(get.address, (Word)get.ALUout.ui);
 		break;
-		//----------------------# syscall #---------------
+	//----------------------# syscall #---------------
 	case CommandType::_syscall1:
 		cout << get.ALUout.i;
 		break;
@@ -549,7 +549,7 @@ bool MipsSimulator::MEM(EX_MEM &get, MEM_WB &write, bool &mem_access) {
 	case CommandType::_syscall8: {
 		string str;
 		cin >> str;
-		mem->writeString(get.address, get.ALUout, str + '\0');
+		mem->writeString(get.address, get.ALUout.ui, str + '\0');
 		break;
 	}
 	case CommandType::_syscall9:
@@ -557,115 +557,130 @@ bool MipsSimulator::MEM(EX_MEM &get, MEM_WB &write, bool &mem_access) {
 		write.result = mem->getSpace(get.ALUout.ui);
 		break;
 	default:
-		mem_access = true;
 		if (get.com >= CommandType::_jal && get.com <= CommandType::_la)
 			write.result = get.address;
 		else
 			write.result = get.ALUout;
 	}
-	get.init();
 	return true;
 }
 
-bool MipsSimulator::WB(MEM_WB &get) {
-	if (get.com == CommandType::none)
-		return false;
-
-		//puts("WB");
+bool MipsSimulator::WB(const MEM_WB &get) {
 	if (get.res.ui != 255u) {
-		regLock[get.res.ui]--;
+		regLock[get.res.ui] = false;
 		reg[get.res.ui] = get.result;
 	}
-
-	get.init();
 	return true;
 }
 
+#ifdef DEBUG
+int cnt1 = 0, cnt2 = 0;
+#endif // DEBUG
 
-bool MipsSimulator::run() {
-	__init();
-	int filedCounter = 0;
-	while (filedCounter < 5) {
-		bool mem_access = true;
-/*
-		if (pc.ui != 0) {
+bool MipsSimulator::run(Word Entry, unsigned int len, Memory *_mem) {
+	memset(reg, 0, sizeof(reg));
+	memset(regLock, 0, sizeof(regLock));
+	reg[29].ui = _mem->getSize() - 1;
+	BHT.set();
+	memset(BH, 0, sizeof(BH));
 
-			IF(IFID, mem_access);
-			ID(IFID, IDEX);
-			if (IDEX.com >= CommandType::_b && IDEX.com <= CommandType::_jalr)
-				pc = IDEX.imm;
-			EX(IDEX, EXMEM);
-			if (EXMEM.com >= CommandType::_beq && EXMEM.com <= CommandType::_bltz)
-				pc = EXMEM.address;
-			MEM(EXMEM, MEMWB, mem_access);
-			if (MEMWB.com >= CommandType::_syscall) {
-				//mem->out(code->codeLimit << 3);
-			}
+	pc = Entry;
+	codeLimit = len,
+	mem = _mem;
 
-			WB(MEMWB);
-			//for(int i = 0; i <= 31; i++)
-			//	cout << (int)regLock[i];
-			//puts("");
+	while (tik_tok());
+
+#ifdef DEBUG
+	#include <fstream>
+	std::ofstream out("logout", std::ios::app);
+	out << cnt1 << " " << cnt2 << " " << 100.0 * cnt2 / cnt1 << endl;
+#endif
+	return pc == 0;
+}
+
+//controler
+bool MipsSimulator::tik_tok() {
+	bool memAccess = true, finish = true;
+	IFID.load = IFID.EXreg = IFID.MEMreg = 255u;
+
+
+	if (!MEMWB.empty()) {
+		WB(MEMWB);
+		MEMWB.init();
+	}
+
+	if (memAccess && !EXMEM.empty() && MEMWB.empty()) {
+		MEM(EXMEM, MEMWB);
+		if ((IDEX.com >= CommandType::_lb && IDEX.com <= CommandType::_sw) ||
+			IDEX.com >= CommandType::_syscall5 || IDEX.com >= CommandType::_syscall9)
+			memAccess = false;
+		IFID.MEMreg = MEMWB.res;
+		IFID.MEMdata = MEMWB.result;
+		EXMEM.init();
+		finish = false;
+	}
+
+	if (!IDEX.empty() && EXMEM.empty()) {
+		EX(IDEX, EXMEM);
+		switch (EXMEM.com) {
+		case CommandType::_lb:
+		case CommandType::_lh:
+		case CommandType::_lw:
+		case CommandType::_syscall5:
+		case CommandType::_syscall9:
+			IFID.load = EXMEM.res;
+			break;
+		case CommandType::_jal:
+		case CommandType::_jalr:
+		case CommandType::_li:
+		case CommandType::_la:
+			IFID.EXreg = EXMEM.res;
+			IFID.EXdata = EXMEM.address;
+			break;
+		default:
+			IFID.EXreg = EXMEM.res;
+			IFID.EXdata = EXMEM.ALUout;
+			break;
 		}
-		else
-			filedCounter = 5;
-		continue;
-*/
-		filedCounter = 0;
-		IFID.load = IFID.EXreg = IFID.MEMreg = 255u;
-		if (!WB(MEMWB))
-			filedCounter++;
-
-		if (MEM(EXMEM, MEMWB, mem_access)) {
-			IFID.MEMreg = MEMWB.res;
-			IFID.MEMdata = MEMWB.result;
-		}
-		else
-			filedCounter++;
-
-		if (EX(IDEX, EXMEM)) {
-			switch (EXMEM.com) {
-			case CommandType::_lb:
-			case CommandType::_lh:
-			case CommandType::_lw:
-			case CommandType::_syscall5:
-			case CommandType::_syscall9:
-				IFID.load = EXMEM.res;
-				break;
-			case CommandType::_jal:
-			case CommandType::_jalr:
-			case CommandType::_li:
-			case CommandType::_la:
-				IFID.EXreg = EXMEM.res;
-				IFID.EXdata = EXMEM.address;
-				break;
-			default:
-				IFID.EXreg = EXMEM.res;
-				IFID.EXdata = EXMEM.ALUout;
-				break;
-			}
-			if (EXMEM.com >= CommandType::_beq && EXMEM.com <= CommandType::_bltz
-				&& IFID.npc.ui - 1 != EXMEM.address.ui) {
+		if (EXMEM.com >= CommandType::_beq && EXMEM.com <= CommandType::_bltz){
+			if (IFID.npc.ui - 1 != EXMEM.address.ui) {
+#ifdef DEBUG
+				if(!IFID.empty())
+					cnt2--;
+#endif // DEBUG
 				IFID.init();
 				pc = EXMEM.address;
 			}
+#ifdef DEBUG
+			cnt1++;
+			cnt2++;
+#endif // DEBUG
+
+			changeBranch(IDEX.npc.ui - 1, EXMEM.address.ui != IDEX.npc.ui);
 		}
-		else
-			filedCounter++;
-
-		if (ID(IFID, IDEX)) {
-			if ((IDEX.com >= CommandType::_b && IDEX.com <= CommandType::_jalr)
-				|| (IDEX.com >= CommandType::_beq && IDEX.com <= CommandType::_bltz && IDEX.imm < pc))
-				pc = IDEX.imm;
-		}
-		else
-			filedCounter++;
-
-		if(pc.ui != 0)
-			IF(IFID, mem_access);
-		else
-			filedCounter++;
-
+		IDEX.init();
+		finish = false;
 	}
-	return pc == 0;
+
+
+	if (!IFID.empty() && IDEX.empty()) {
+		if (ID(IFID, IDEX)) {
+			if (IDEX.com >= CommandType::_b && IDEX.com <= CommandType::_jalr)
+				pc = IDEX.imm;
+			//if (IDEX.com >= CommandType::_beq && IDEX.com <= CommandType::_bltz && IDEX.npc.ui > IDEX.imm) {
+			if (IDEX.com >= CommandType::_beq && IDEX.com <= CommandType::_bltz && getBranch(IDEX.npc.ui - 1)) {
+				pc = IDEX.imm;
+			}
+			IFID.init();
+		}
+		finish = false;
+	}
+#ifdef DEBUG
+	memAccess = true;
+#endif // DEBUG
+	if (pc.ui != 0 && memAccess && IFID.empty())
+		IF(IFID), finish = false;
+
+
+	return !finish;
 }

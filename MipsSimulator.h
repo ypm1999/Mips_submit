@@ -2,28 +2,34 @@
 #define __MipsSimulator
 
 #include <algorithm>
+#include <bitset>
 #include "Format.h"
 #include "MipsParser.h"
-
+using std::bitset;
 using std::cout;
 using std::cin;
 using std::endl;
 
 class MipsSimulator {
 	MipsParser *code;
+	Word Entry;
+	unsigned int codeLimit;
 	Memory *mem;
 	bool withReturnValue;
 	int returnValue;
 
 	Word reg[32 + 3];
-	char regLock[32];
+	bool regLock[32];
 	Word &hi = reg[32];
 	Word &lo = reg[33];
 	Word &pc = reg[34];
 
-	
-
-	void __init();
+	static const unsigned int addressLen = 10;
+	static const unsigned int addressBIT = (1 << addressLen) - 1;
+	static const unsigned int pridLen = 6;
+	static const unsigned int pridBIT = (1 << pridLen) - 1;
+	bitset<1 << (addressLen + pridLen)> BHT;
+	unsigned char BH[1 << addressLen];
 
 	class IF_ID {
 		friend class MipsSimulator;
@@ -31,16 +37,17 @@ class MipsSimulator {
 		Word npc;
 		Byte load, EXreg, MEMreg;
 		Word EXdata, MEMdata;
+		bool empty();
 		IF_ID() noexcept { init(); }
 		void init();
 	}IFID;
 
 	class ID_EX {
 		friend class MipsSimulator;
-		Word npc;
 		CommandType com;
-		Word a, b, imm;
+		Word npc, a, b, imm;
 		Byte res;
+		bool empty();
 		ID_EX() noexcept { init(); }
 		void init();
 	}IDEX;
@@ -50,6 +57,7 @@ class MipsSimulator {
 		CommandType com;
 		Word ALUout, address;
 		Byte res;
+		bool empty();
 		EX_MEM() noexcept { init(); }
 		void init();
 	}EXMEM;
@@ -59,25 +67,32 @@ class MipsSimulator {
 		CommandType com;
 		Word result;
 		Byte res;
+		bool empty();
 		MEM_WB() noexcept { init(); }
 		void init();
 	}MEMWB;
 
 
+	bool getBranch(unsigned int i);
+	void changeBranch(unsigned int i, bool sta);
+
 	bool getReg(const IF_ID & in, const unsigned char id, Word & res) const;
 
-	bool IF(IF_ID & write, bool & mem_access);
-	bool ID(IF_ID & get, ID_EX & write);
-	bool EX(ID_EX &get, EX_MEM  &write);
-	bool MEM(EX_MEM &get, MEM_WB &write, bool &mem_access);
-	bool WB(MEM_WB &get);
+	bool IF(IF_ID & write);
+	bool ID(const IF_ID & get, ID_EX & write);
+	bool EX(const ID_EX & get, EX_MEM  & write);
+	bool MEM(const EX_MEM & get, MEM_WB & write);
+	bool WB(const MEM_WB & get);
+
+	bool tik_tok();
 
 public:
-	MipsSimulator(MipsParser *_code, Memory *_mem) :code(_code), mem(_mem), withReturnValue(false), returnValue(0) {};
-
+	MipsSimulator(MipsParser *_code = nullptr) :code(_code) {};
 	bool with_returnValue() { return withReturnValue; }
 	int get_returnValue() { return returnValue; }
-	bool run();
+	bool run(Word _Entry, unsigned int len, Memory *_mem);
 };
+
+
 
 #endif // !__MipsSimulator

@@ -1,7 +1,9 @@
 #include "MipsParser.h"
-#include <cassert>
+
 
 void MipsParser::__initialization() {
+	if (regMap.size() != 0)
+		return;
 	regMap[""] = -1;
 	for (unsigned int i = 0; i < 32; i++)
 		regMap[string("$") + std::to_string(i)] = i;
@@ -102,19 +104,21 @@ void MipsParser::__initialization() {
 
 
 string MipsParser::getSingleString(unsigned int &pos) const {
-	while (s[pos] == ' ' || s[pos] == ',' || s[pos] == '\t' || s[pos] == '\n' || s[pos] == '\r' || s[pos] == '#') {
-		if (s[pos] == '#')
-			while (s[pos] != '\n')
+	const string &code = *sourceCode;
+	while (code[pos] == ' ' || code[pos] == ',' || code[pos] == '\t' 
+		|| code[pos] == '\n' || code[pos] == '\r' || code[pos] == '#') {
+		if (code[pos] == '#')
+			while (code[pos] != '\n')
 				pos++;
 		pos++;
 	}
 	string res = "";
-	if (s[pos] == '\"') {
+	if (code[pos] == '\"') {
 		pos++;
-		while (s[pos] != '\"') {
-			if (s[pos] == '\\') {
+		while (code[pos] != '\"') {
+			if (code[pos] == '\\') {
 				pos++;
-				switch (s[pos]) {
+				switch (code[pos]) {
 				case 'a':
 					res += '\a';
 					break;
@@ -151,20 +155,20 @@ string MipsParser::getSingleString(unsigned int &pos) const {
 				}
 			}
 			else
-				res += s[pos];
+				res += code[pos];
 			pos++;
 		}
 		pos++;
 		return std::move(res);
 	}
 	bool flag = true;
-	while (pos < s.length() && flag) {
-		switch (s[pos]) {
+	while (pos < sourceCode->length() && flag) {
+		switch (code[pos]) {
 		case ' ': case ',': case '\t': case '\n': case '\r':
 			flag = false;
 			break;
 		default:
-			res += s[pos];
+			res += code[pos];
 		}
 		pos++;
 	}
@@ -173,7 +177,7 @@ string MipsParser::getSingleString(unsigned int &pos) const {
 
 bool MipsParser::getData(unsigned int &pos, Data &res) const {
 	unsigned int lastpos = pos;
-	if (pos >= s.length())
+	if (pos >= sourceCode->length())
 		return false;
 	string tmp = getSingleString(pos);
 	auto it = dataNameMap.find(tmp);
@@ -181,8 +185,8 @@ bool MipsParser::getData(unsigned int &pos, Data &res) const {
 		pos = lastpos;
 		return false;
 	}
-	res.n = -1;
-	res.data = "";
+	res.type = (*it).second;
+	
 	switch ((*it).second) {
 
 	case DataType::_ascii: {
@@ -196,6 +200,7 @@ bool MipsParser::getData(unsigned int &pos, Data &res) const {
 	case DataType::_byte: {
 		string data = getSingleString(pos);
 		lastpos = pos;
+		res.data = "";
 		while (data.length() && (isdigit(data[0]) || (data[0] == '-' && isdigit(data[1])))) {
 			res.data += (char)stoi(data);
 			lastpos = pos;
@@ -207,6 +212,7 @@ bool MipsParser::getData(unsigned int &pos, Data &res) const {
 	case DataType::_half: {
 		string data = getSingleString(pos);
 		lastpos = pos;
+		res.data = "";
 		while (data.length() && (isdigit(data[0]) || (data[0] == '-' && isdigit(data[1])))) {
 			Half tmp = (short)stoi(data);
 			res.data += tmp.b0;
@@ -220,6 +226,7 @@ bool MipsParser::getData(unsigned int &pos, Data &res) const {
 	case DataType::_word: {
 		string data = getSingleString(pos);
 		lastpos = pos;
+		res.data = "";
 		while (data.length() && (isdigit(data[0]) || (data[0] == '-' && isdigit(data[1])))) {
 			Word tmp = stoi(data);
 			res.data += tmp.b0;
@@ -236,7 +243,7 @@ bool MipsParser::getData(unsigned int &pos, Data &res) const {
 		res.data.resize(stoi(getSingleString(pos)));
 		break;
 	case DataType::_align: {
-		res.n = stoi(getSingleString(pos));
+		res.data = getSingleString(pos);
 		break;
 	}
 	default:
@@ -247,7 +254,7 @@ bool MipsParser::getData(unsigned int &pos, Data &res) const {
 
 bool MipsParser::getCommand(unsigned int &pos) {
 	unsigned int lastpos = pos;
-	if (pos >= s.length())
+	if (pos >= sourceCode->length())
 		return false;
 	string tmp = getSingleString(pos);
 	auto it = commandNameMap.find(tmp);
@@ -456,7 +463,7 @@ Word MipsParser::getCommandBlock(unsigned int &pos) {
 void MipsParser::getText() {
 	unsigned int pos = 0;
 	bool text = 0;
-	while (pos < s.length()) {
+	while (pos < sourceCode->length()) {
 		int lastpos = pos;
 		string  name = getSingleString(pos);
 		if (name == "")
@@ -478,7 +485,7 @@ void MipsParser::getText() {
 		if (text) {
 			Word ad = getCommandBlock(pos);
 			if (name != ""){
-				commandMap[name] = ad.ui >> 3;
+				(*commandMap)[name] = ad.ui >> 3;
 			}
 
 		}
@@ -494,12 +501,12 @@ void MipsParser::getText() {
 void MipsParser::writeData() {
 	for (auto i : *data) {
 		if (i.first != "")
-			dataMap[i.first] = mem->top();
+			(*dataMap)[i.first] = mem->top();
 		for (auto j : i.second) {
-			if (j.n == -1)
+			if (j.type != DataType::_align)
 				mem->getSpace(j.data.length(), j.data.c_str());
 			else
-				mem->algin(j.n);
+				mem->algin(stoi(j.data));
 		}
 	}
 }
@@ -510,16 +517,16 @@ void MipsParser::matchLabel() {
 		int tmp = vec.front();
 		CommandType com = (CommandType)mem->getWord(tmp).b0;
 		if (com >= CommandType::_la && com <= CommandType::_sw) {
-			auto it = dataMap.find(i.first);
-			if (it == dataMap.end())
+			auto it = dataMap->find(i.first);
+			if (it == dataMap->end())
 				throw function_not_defined(i.first + "(Data)");
 			for (auto j : vec) {
 				mem->writeWord(j + (commandSize >> 1), (*it).second);
 			}
 		}
 		else {
-			auto it = commandMap.find(i.first);
-			if (it == commandMap.end())
+			auto it = commandMap->find(i.first);
+			if (it == commandMap->end())
 				throw function_not_defined(i.first);
 			for (auto j : vec) {
 				mem->writeHalf(j + (commandSize >> 2), (short)(*it).second);
@@ -529,39 +536,41 @@ void MipsParser::matchLabel() {
 }
 
 
-MipsParser::MipsParser(const string &str, Memory *_mem) :s(str), mem(_mem), codeLimit(0) {
+MipsParser::MipsParser() {
 	__initialization();
 }
 
-bool MipsParser::parser() {
+bool MipsParser::work(const string &str, Memory *_mem) {
+	codeLimit = 0;
+	entry = 0;
+	mem = _mem;
+
 	try {
 		data = new vector< pair<string, vector<Data> > >;
 		table = new map<string, vector<int> >;
+		commandMap = new map<string, Word>;
+		dataMap = new map<string, Word>;
+		sourceCode = new string(str);
+
 		getText();
 		codeLimit = mem->top() >> 3;
 		writeData();
 		matchLabel();
+		entry = commandMap->find(string("main"))->second.ui;
+		if (entry == 0)
+			throw without_main();
+
 		delete data;
 		delete table;
+#ifndef DEBUG
+		delete commandMap;
+		delete dataMap;
+		delete sourceCode;
+		mem = nullptr;
+#endif // !DEBUG
 	}
 	catch (...) {
-		std::cerr << "CE!! Error in parser!" << endl;
 		return false;
 	}
 	return true;
-}
-
-unsigned int MipsParser::getAddress(string name) {
-	auto tmp = commandMap.find(name);
-	if (tmp == commandMap.end())
-		return 0;
-	else
-		return tmp->second;
-}
-
-string MipsParser::getname(Word address) {
-	for (auto j : commandMap)
-		if (j.second.i == address.i)
-			return j.first;
-	return "none";
 }

@@ -94,35 +94,29 @@ Half Memory::getHalf(const Word &address) const {
 
 Word Memory::getWord(const Word &address) const {
 	Word tmp;
-	tmp.b0 = data[address.ui];
-	tmp.b1 = data[address.ui + 1];
-	tmp.b2 = data[address.ui + 2];
-	tmp.b3 = data[address.ui + 3];
+	memcpy(&tmp, data + address.ui, 4);
 	return std::move(tmp);
 }
 
 string Memory::getString(const Word &address) const {
 	string s = "";
 	int pos = address.ui;
-	while (data[pos].i != 0) {
+	while (data[pos].i != 0)
 		s += data[pos++].i;
-	}
-	return s;
+	return std::move(s);
 }
 
-
+#ifdef DEBUG
 void Memory::out(int start) const {
 	for (unsigned int i = start; i < used; i++) {
 		std::cout << (unsigned int)data[i] << " \n"[(i + 1) % 8 == 0];
 	}
 	puts("--------------------------");
 }
+#endif // DEBUG
+
 
 Memory::Memory(unsigned int _size) noexcept :used(commandSize), size(_size) {
 	data = new Byte[_size];
 	memset(data, 0, size);
-}
-
-Memory::~Memory() {
-	delete[] data;
 }

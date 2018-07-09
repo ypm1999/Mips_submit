@@ -35,10 +35,12 @@ public:
 	unsigned int top() const { return used; }
 	unsigned int getSize() const { return size; }
 
+#ifdef DEBUG
 	void out(int start) const;
+#endif // DEBUG
 
 	Memory(unsigned int _size = 1024 * 1024 * 4) noexcept;
-	~Memory();
+	~Memory() { delete[] data; }
 };
 
 #endif // !__Memory

@@ -5,8 +5,8 @@
 #include <string>
 const unsigned int commandSize = 8;
 
-union Word;
-union Half;
+//union Word;
+//union Half;
 
 union Byte {
 	char i;
@@ -37,7 +37,7 @@ union Word {
 	//operator Byte();
 	//operator Half();
 };
-//
+
 //Byte::operator Half() { return Half(i); }
 //Byte::operator Word() { return Word(i); }
 //Half::operator Byte() { return b0; }

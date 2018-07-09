@@ -8,6 +8,14 @@ using std::string;
 using std::cerr;
 using std::endl;
 
+class Error {
+public:
+	Error(string str = "Unknown") noexcept {
+		cerr << "Error! " << str << endl;
+	}
+};
+
+
 class empty_label {
 public:
 	empty_label(string name = "Unknown") noexcept {
