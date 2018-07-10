@@ -38,8 +38,8 @@ class MipsSimulator {
 		Byte load, EXreg, MEMreg;
 		Word EXdata, MEMdata;
 		bool empty();
-		IF_ID() noexcept { init(); }
 		void init();
+		IF_ID() noexcept { init(); }
 	}IFID, IFID1;
 
 	class ID_EX {
@@ -47,11 +47,9 @@ class MipsSimulator {
 		CommandType com;
 		Word npc, a, b, imm;
 		Byte res;
-		bool empty() {
-			return com == CommandType::none;
-		}
-		ID_EX() noexcept { init(); }
+		bool empty();
 		void init();
+		ID_EX() noexcept { init(); }
 	}IDEX, IDEX1;
 
 	class EX_MEM {
@@ -59,11 +57,9 @@ class MipsSimulator {
 		CommandType com;
 		Word ALUout, address;
 		Byte res;
-		bool empty() {
-			return com == CommandType::none;
-		}
-		EX_MEM() noexcept { init(); }
+		bool empty();
 		void init();
+		EX_MEM() noexcept { init(); }
 	}EXMEM, EXMEM1;
 
 	class MEM_WB {
@@ -72,8 +68,8 @@ class MipsSimulator {
 		Word result;
 		Byte res;
 		bool empty();
-		MEM_WB() noexcept { init(); }
 		void init();
+		MEM_WB() noexcept { init(); }
 	}MEMWB, MEMWB1;
 
 
@@ -88,7 +84,7 @@ class MipsSimulator {
 	bool MEM(const EX_MEM & get, MEM_WB & write);
 	void WB(const MEM_WB & get);
 
-	bool tik_tok();
+//	bool tik_tok();
 
 public:
 	MipsSimulator(MipsParser *_code = nullptr) :code(_code) {};
@@ -96,7 +92,7 @@ public:
 	int get_returnValue() { return returnValue; }
 	bool run(Word _Entry, unsigned int len, Memory *_mem);
 	
-	void thread1(bool & finish);
+//	void thread1(bool & finish);
 	
 
 	bool tik_tok1();

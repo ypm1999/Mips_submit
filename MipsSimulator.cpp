@@ -1,49 +1,49 @@
 #include "MipsSimulator.h"
 
 
-inline bool MipsSimulator::IF_ID::empty(){
+ bool MipsSimulator::IF_ID::empty(){
 	return res1.b0 == (unsigned char)CommandType::none;
 }
 
-inline void MipsSimulator::IF_ID::init() {
+ void MipsSimulator::IF_ID::init() {
 	res1.b0 = (unsigned char)CommandType::none;
 	npc = 0;
 }
-/*
-inline bool MipsSimulator::ID_EX::empty(){
-	return com == CommandType::none;
-}
-*/
-inline void MipsSimulator::ID_EX::init() {
-	com = CommandType::none;
-	res.ui = 255u;
-}
 
-//inline bool MipsSimulator::EX_MEM::empty(){
-//	return com == CommandType::none;
-//}
-
-inline void MipsSimulator::EX_MEM::init() {
-	com = CommandType::none;
-	res.ui = 255u;
-}
-
-inline bool MipsSimulator::MEM_WB::empty(){
+ bool MipsSimulator::ID_EX::empty(){
 	return com == CommandType::none;
 }
 
-inline void MipsSimulator::MEM_WB::init() {
+ void MipsSimulator::ID_EX::init() {
+	com = CommandType::none;
+	res.ui = 255u;
+}
+
+ bool MipsSimulator::EX_MEM::empty(){
+	return com == CommandType::none;
+}
+
+ void MipsSimulator::EX_MEM::init() {
+	com = CommandType::none;
+	res.ui = 255u;
+}
+
+ bool MipsSimulator::MEM_WB::empty(){
+	return com == CommandType::none;
+}
+
+ void MipsSimulator::MEM_WB::init() {
 	com = CommandType::none;
 	res.ui = 255u;
 }
 
 
-inline bool MipsSimulator::getBranch(unsigned int i) {
+ bool MipsSimulator::getBranch(unsigned int i) {
 	i &= addressBIT;
 	return BHT[(i << pridLen) + BH[i]];
 }
 
-inline void MipsSimulator::changeBranch(unsigned int i, bool sta) {
+ void MipsSimulator::changeBranch(unsigned int i, bool sta) {
 	i &= addressBIT;
 	BHT[(i << pridLen) + BH[i]] = sta;
 	BH[i] = ((BH[i] << 1) | (int)sta) & pridBIT;
