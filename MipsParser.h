@@ -50,7 +50,7 @@ class MipsParser {
 	void matchLabel();
 
 public:
-	MipsParser();
+	MipsParser() noexcept;
 	~MipsParser() = default;
 
 	bool work(const string &str, Memory *_mem);

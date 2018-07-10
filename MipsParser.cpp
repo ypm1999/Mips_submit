@@ -536,7 +536,7 @@ void MipsParser::matchLabel() {
 }
 
 
-MipsParser::MipsParser() {
+MipsParser::MipsParser() noexcept {
 	__initialization();
 }
 

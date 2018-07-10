@@ -40,27 +40,31 @@ class MipsSimulator {
 		bool empty();
 		IF_ID() noexcept { init(); }
 		void init();
-	}IFID;
+	}IFID, IFID1;
 
 	class ID_EX {
 		friend class MipsSimulator;
 		CommandType com;
 		Word npc, a, b, imm;
 		Byte res;
-		bool empty();
+		bool empty() {
+			return com == CommandType::none;
+		}
 		ID_EX() noexcept { init(); }
 		void init();
-	}IDEX;
+	}IDEX, IDEX1;
 
 	class EX_MEM {
 		friend class MipsSimulator;
 		CommandType com;
 		Word ALUout, address;
 		Byte res;
-		bool empty();
+		bool empty() {
+			return com == CommandType::none;
+		}
 		EX_MEM() noexcept { init(); }
 		void init();
-	}EXMEM;
+	}EXMEM, EXMEM1;
 
 	class MEM_WB {
 		friend class MipsSimulator;
@@ -70,7 +74,7 @@ class MipsSimulator {
 		bool empty();
 		MEM_WB() noexcept { init(); }
 		void init();
-	}MEMWB;
+	}MEMWB, MEMWB1;
 
 
 	bool getBranch(unsigned int i);
@@ -82,7 +86,7 @@ class MipsSimulator {
 	bool ID(const IF_ID & get, ID_EX & write);
 	bool EX(const ID_EX & get, EX_MEM  & write);
 	bool MEM(const EX_MEM & get, MEM_WB & write);
-	bool WB(const MEM_WB & get);
+	void WB(const MEM_WB & get);
 
 	bool tik_tok();
 
@@ -91,6 +95,11 @@ public:
 	bool with_returnValue() { return withReturnValue; }
 	int get_returnValue() { return returnValue; }
 	bool run(Word _Entry, unsigned int len, Memory *_mem);
+	
+	void thread1(bool & finish);
+	
+
+	bool tik_tok1();
 };
 
 
