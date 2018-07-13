@@ -1,7 +1,7 @@
 CC = g++
 TARGET = code
 SRCS =  Memory.cpp MipsParser.cpp MipsSimulator.cpp main.cpp
-CXXFLAG =  -std=c++14 -O2 -pthread
+CXXFLAG =  -std=c++11 -O2 -pthread
 OBJS = $(SRCS:.cpp=.o)
 
 $(TARGET):$(OBJS)
