@@ -1,22 +1,14 @@
-# 指令编译器和选项
-
-
-# 目标文件
-TARGET=code
-SRCS = main.cpp
-
-OBJS = $(SRCS:.c=.o)
+CC = g++
+TARGET = code
+SRCS =  Memory.cpp MipsParser.cpp MipsSimulator.cpp main.cpp
+CXXFLAG =  -std=c++14 -O2 -pthread
+OBJS = $(SRCS:.cpp=.o)
 
 $(TARGET):$(OBJS)
-	g++ -c Memory.cpp -std=c++11 -Wall -Wextra -Wconversion -O2
-	g++ -c MipsParser.cpp -std=c++11 -Wall -Wextra -Wconversion -O2
-	g++ -c MipsSimulator.cpp -std=c++11 -Wall -Wextra -Wconversion -O2
-	g++ -c main.cpp -std=c++11 -Wall -Wextra -Wconversion -O2
-	g++ Memory.o MipsParser.o MipsSimulator.o main.o -o code -std=c++11 -Wall -Wextra -Wconversion -O2
-# -O1 -Wall -Wextra -Wconversion
-#	@echo TARGET:$@
-#	@echo OBJECTS:$^
-#	$(CC) -o $@ $^
+	$(CC) $(CXXFLAG) $(OBJS) -o $(TARGET)
+
+%.o:%.cpp %.h
+	$(CC) $(CXXFLAG) -c $< -o $@
 
 clean:
-	rm -rf code
+	rm -rf $(TARGET) $(OBJS)

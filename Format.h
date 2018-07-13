@@ -5,17 +5,12 @@
 #include <string>
 const unsigned int commandSize = 8;
 
-//union Word;
-//union Half;
-
 union Byte {
 	char i;
 	unsigned char ui;
 	struct { unsigned char b0; };
 	Byte(char _t = 0) noexcept :i(_t) {}
 	operator unsigned char(){ return (unsigned char)i; }
-	//operator Half();
-	//operator Word();
 };
 
 union Half{
@@ -24,8 +19,6 @@ union Half{
 	struct { unsigned char b0, b1; };
 	Half(short _t = 0) noexcept :i(_t) {}
 	operator short() { return i; }
-	//operator Byte();
-	//operator Word();
 };
 
 union Word {
@@ -34,16 +27,8 @@ union Word {
 	struct { unsigned char b0, b1, b2, b3; };
 	Word(int _t = 0) noexcept :i(_t) {}
 	operator int() { return i; }
-	//operator Byte();
-	//operator Half();
 };
 
-//Byte::operator Half() { return Half(i); }
-//Byte::operator Word() { return Word(i); }
-//Half::operator Byte() { return b0; }
-//Half::operator Word() { return Word(i); }
-//Word::operator Byte() { return b0; }
-//Word::operator Half() { return Half(i); }
 
 enum class DataType:unsigned char {
 	_ascii, _asciiz, _byte, _half, _word, _space, _align, none

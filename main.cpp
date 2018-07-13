@@ -22,7 +22,6 @@ int main(int argc, char *argv[]) {
 	//freopen("code.out", "w", stdout);
 	//runCode("code.s");
 	runCode(argv[1]);
-
 	return 0;
 }
 

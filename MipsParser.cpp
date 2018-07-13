@@ -496,6 +496,7 @@ void MipsParser::getText() {
 			data->push_back(res);
 		}
 	}
+	mem->getSpace((unsigned long long)CommandType::none);
 }
 
 void MipsParser::writeData() {
