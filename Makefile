@@ -5,7 +5,7 @@ CXXFLAG =  -std=c++11  -O2 -pthread
 OBJS = $(SRCS:.cpp=.o)
 
 $(TARGET):$(OBJS)
-	@echo $(CC) $(CXXFLAG) $(OBJS) -o $(TARGET)
+	$(CC) $(CXXFLAG) $(OBJS) -o $(TARGET)
 
 %.o:%.cpp
 	$(CC) $(CXXFLAG) -c $< -o $@
