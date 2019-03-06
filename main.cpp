@@ -34,10 +34,7 @@ void runCode(string source) {
 	std::stringstream buffer;
 	buffer << sourceFile.rdbuf();
 
-	unique_ptr<Memory> mem(new Memory);
-	unique_ptr<MipsParser> Parser(new MipsParser());
-	if (!Parser->work(buffer.str(), mem.get()))
-		throw Error("CE!! Error in parser!");
+	printf("test");
 
 	unique_ptr<MipsSimulator> program(new MipsSimulator(Parser.get()));
 	if (!program->run(Parser.get()->getEntry(), Parser.get()->getLimit(), mem.get()))
