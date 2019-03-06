@@ -34,7 +34,7 @@ void runCode(string source) {
 	std::stringstream buffer;
 	buffer << sourceFile.rdbuf();
 
-	printf("test");
+	printf("test!!!!!!");
 
 	unique_ptr<MipsSimulator> program(new MipsSimulator(Parser.get()));
 	if (!program->run(Parser.get()->getEntry(), Parser.get()->getLimit(), mem.get()))
